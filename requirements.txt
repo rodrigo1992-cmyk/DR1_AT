@@ -1,0 +1,5 @@
+pandas
+streamlit
+regex==2023.10.3
+plotly==5.24.0
+streamlit-aggrid==1.0.5
