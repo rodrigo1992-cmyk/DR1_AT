@@ -2,11 +2,14 @@
 import pandas as pd
 import streamlit as st
 from statsbombpy import sb
-from mplsoccer import Pitch, FontManager, Sbopen
+from mplsoccer import Pitch, FontManager, Sbopen, VerticalPitch
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import matplotlib.patheffects as path_effects
+from matplotlib.colors import LinearSegmentedColormap
+from scipy.ndimage import gaussian_filter
 
 st.set_page_config(layout="wide")
 
@@ -144,8 +147,6 @@ def graficos_partida(df_partidas_filtrado, df_eventos, time):
         #Ajusto a coluna para pegar apenas o primeiro nome do jogador
         df_passes['player'] = df_passes['player'].str.split(' ').str[0]
 
-        
-
         fig, ax = plt.subplots(figsize=(6, 8))
         sns.barplot(x='passes', y='player', data=df_passes, palette='viridis', ax=ax)
         for i in ax.patches:
@@ -153,53 +154,86 @@ def graficos_partida(df_partidas_filtrado, df_eventos, time):
         st.pyplot(fig)
 
 ######################################  PLOTA O MAPA DE PASSES E GOLS ######################################
+
 def pass_plot(df_eventos, filtro_id_partida):
-    rcParams['text.color'] = '#c7d5cc'
-     
-    parser = Sbopen()
-    df, related, freeze, tactics = parser.event(df_eventos['match_id'].values[0])
+    with st.container(height=920):
+        st.markdown(f"<h4 style='text-align: center;'>Mapa de Rota dos Chutes e Passes</h4>", unsafe_allow_html=True)
 
-    #Criando um Seletor para escolher Time e um para escolher o tipo de evento
-    team1, team2 = df.team_name.unique()
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        tipo_label = st.radio("Selecione a visualização", ('Chutes a Gol', 'Passes'))
-        if tipo_label == 'Chutes a Gol': tipo = 'Shot'
-        else: tipo = 'Pass'
-    with col2:
-        team = st.radio("Selecione um time", (team1, team2))
+        rcParams['text.color'] = '#c7d5cc'
+        
+        parser = Sbopen()
+        df, related, freeze, tactics = parser.event(df_eventos['match_id'].values[0])
 
-    mask_team = (df.type_name == tipo) & (df.team_name == team)
+        #Criando um Seletor para escolher Time e um para escolher o tipo de evento
+        team1, team2 = df.team_name.unique()
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            tipo_label = st.radio("Selecione a visualização", ('Chutes a Gol', 'Passes'))
+            if tipo_label == 'Chutes a Gol': tipo = 'Shot'
+            else: tipo = 'Pass'
+        with col2:
+            team = st.radio("Selecione um time", (team1, team2))
 
-    #Filter dataset to only include one teams passes and get boolean mask for the completed passes
-    df_pass = df.loc[mask_team, ['x', 'y', 'end_x', 'end_y', 'outcome_name']]
-    mask_complete = (df_pass.outcome_name == 'Goal') | (df_pass.outcome_name.isnull())
+        mask_team = (df.type_name == tipo) & (df.team_name == team)
 
-    #Criando o gráfico
-    pitch = Pitch(pitch_type='statsbomb', pitch_color='#22312b', line_color='#c7d5cc')
-    fig, ax = pitch.draw(figsize=(16, 11), constrained_layout=True, tight_layout=False)
-    fig.set_facecolor('#22312b')
+        #Filter dataset to only include one teams passes and get boolean mask for the completed passes
+        df_pass = df.loc[mask_team, ['x', 'y', 'end_x', 'end_y', 'outcome_name']]
+        mask_complete = (df_pass.outcome_name == 'Goal') | (df_pass.outcome_name.isnull())
 
-    # Plotar os chutes/passes SEM Sucesso
-    pitch.arrows(df_pass[~mask_complete].x, df_pass[~mask_complete].y,
-                df_pass[~mask_complete].end_x, df_pass[~mask_complete].end_y, width=2,
-                headwidth=6, headlength=5, headaxislength=12,
-                color='#4E514C', ax=ax, label='Sem Sucesso')
+        #Criando o gráfico
+        pitch = Pitch(pitch_type='statsbomb', pitch_color='#22312b', line_color='#c7d5cc')
+        fig, ax = pitch.draw(figsize=(16, 11), constrained_layout=True, tight_layout=False)
+        fig.set_facecolor('#22312b')
 
-    # Plotar os chutes/passes COM Sucesso
-    pitch.arrows(df_pass[mask_complete].x, df_pass[mask_complete].y,
-                df_pass[mask_complete].end_x, df_pass[mask_complete].end_y, width=2,
-                headwidth=10, headlength=10, color='#55EA0B', ax=ax, label='Com Sucesso')
+        # Plotar os chutes/passes SEM Sucesso
+        pitch.arrows(df_pass[~mask_complete].x, df_pass[~mask_complete].y,
+                    df_pass[~mask_complete].end_x, df_pass[~mask_complete].end_y, width=2,
+                    headwidth=6, headlength=5, headaxislength=12,
+                    color='#4E514C', ax=ax, label='Sem Sucesso')
 
-    # Set up the legend
-    ax.legend(facecolor='#22312b', handlelength=5, edgecolor='None', fontsize=20, loc='upper left')
+        # Plotar os chutes/passes COM Sucesso
+        pitch.arrows(df_pass[mask_complete].x, df_pass[mask_complete].y,
+                    df_pass[mask_complete].end_x, df_pass[mask_complete].end_y, width=2,
+                    headwidth=10, headlength=10, color='#55EA0B', ax=ax, label='Com Sucesso')
 
-    # Set the title
-    ax_title = ax.set_title(f'{tipo_label}: {team}', fontsize=30)
+        # Set up the legend
+        ax.legend(facecolor='#22312b', handlelength=5, edgecolor='None', fontsize=20, loc='upper left')
 
-    st.pyplot(fig)
-    
+        # Set the title
+        ax_title = ax.set_title(f'{tipo_label}: {team}', fontsize=20)
+
+        st.pyplot(fig)
+        
+######################################  PLOTA O MAPA DE PRESSAO ######################################
+    with st.container(height=820):
+
+        st.markdown(f"<h4 style='text-align: center;'>HeatMap de Análise da Pressão Sofrida</h4>", unsafe_allow_html=True)
+        team_heatmap = st.radio("Selecione o time sob pressão", (team1, team2))
+
+        # get data
+        parser = Sbopen()
+        df = pd.DataFrame(parser.event(df_eventos['match_id'].values[0])[0])  # 0 index is the event file
+
+        mask_pressure = (df.team_name == team_heatmap) & (df.type_name == 'Pressure')
+        df_pressure = df.loc[mask_pressure, ['x', 'y']]
+
+        pitch = Pitch(pitch_type='statsbomb', line_zorder=2, pitch_color='#22312b', line_color='#efefef')
+
+        # draw
+        fig, ax = pitch.draw(figsize=(6.6, 4.125))
+        fig.set_facecolor('#22312b')
+        bin_statistic = pitch.bin_statistic(df_pressure.x, df_pressure.y, statistic='count', bins=(25, 25))
+        bin_statistic['statistic'] = gaussian_filter(bin_statistic['statistic'], 1)
+        pcm = pitch.heatmap(bin_statistic, ax=ax, cmap='hot', edgecolors='#22312b')
+        # Add the colorbar and format off-white
+        cbar = fig.colorbar(pcm, ax=ax, shrink=0.6)
+        cbar.outline.set_edgecolor('#efefef')
+        cbar.ax.yaxis.set_tick_params(color='#efefef')
+        ticks = plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#efefef')
+
+        st.pyplot(fig)
+
 
 ######################################  INICIA O APLICATIVO ######################################
 filtro_camp, filtro_ano, filtro_partida, filtro_id_partida, df_partidas_filtrado, df_eventos = filtros_barra_lateral()
