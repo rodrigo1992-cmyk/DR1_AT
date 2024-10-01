@@ -94,7 +94,7 @@ def resumo_selecao(df_partidas_filtrado, df_eventos):
 
         col_1, col_2, col_3 = st.columns(3)
         with col_1:
-            st.write(f'#### RESULTADO {df_partidas_filtrado['resultado'].values[0]}')
+            st.write(f'#### RESULTADO {df_partidas_filtrado["resultado"].values[0]}')
         with col_2:
             st.write(f'#### {count_chutes} CHUTES')
         with col_3:
@@ -177,7 +177,6 @@ def pass_plot(df_eventos, filtro_id_partida):
 
         mask_team = (df.type_name == tipo) & (df.team_name == team)
 
-        #Filter dataset to only include one teams passes and get boolean mask for the completed passes
         df_pass = df.loc[mask_team, ['x', 'y', 'end_x', 'end_y', 'outcome_name']]
         mask_complete = (df_pass.outcome_name == 'Goal') | (df_pass.outcome_name.isnull())
 
@@ -197,10 +196,8 @@ def pass_plot(df_eventos, filtro_id_partida):
                     df_pass[mask_complete].end_x, df_pass[mask_complete].end_y, width=2,
                     headwidth=10, headlength=10, color='#55EA0B', ax=ax, label='Com Sucesso')
 
-        # Set up the legend
+        # Configurar legenda e título
         ax.legend(facecolor='#22312b', handlelength=5, edgecolor='None', fontsize=20, loc='upper left')
-
-        # Set the title
         ax_title = ax.set_title(f'{tipo_label}: {team}', fontsize=20)
 
         st.pyplot(fig)
@@ -211,7 +208,6 @@ def pass_plot(df_eventos, filtro_id_partida):
         st.markdown(f"<h4 style='text-align: center;'>HeatMap de Análise da Pressão Sofrida</h4>", unsafe_allow_html=True)
         team_heatmap = st.radio("Selecione o time sob pressão", (team1, team2))
 
-        # get data
         parser = Sbopen()
         df = pd.DataFrame(parser.event(df_eventos['match_id'].values[0])[0])  # 0 index is the event file
 
@@ -220,37 +216,69 @@ def pass_plot(df_eventos, filtro_id_partida):
 
         pitch = Pitch(pitch_type='statsbomb', line_zorder=2, pitch_color='#22312b', line_color='#efefef')
 
-        # draw
+        # Criando o gráfico
         fig, ax = pitch.draw(figsize=(6.6, 4.125))
         fig.set_facecolor('#22312b')
         bin_statistic = pitch.bin_statistic(df_pressure.x, df_pressure.y, statistic='count', bins=(25, 25))
         bin_statistic['statistic'] = gaussian_filter(bin_statistic['statistic'], 1)
         pcm = pitch.heatmap(bin_statistic, ax=ax, cmap='hot', edgecolors='#22312b')
-        # Add the colorbar and format off-white
+        
         cbar = fig.colorbar(pcm, ax=ax, shrink=0.6)
         cbar.outline.set_edgecolor('#efefef')
         cbar.ax.yaxis.set_tick_params(color='#efefef')
         ticks = plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#efefef')
 
         st.pyplot(fig)
+###################################### COMPARAÇÃO ENTRE JOGADORES ################################
+def aba_jogadores(df_eventos):
+    st.sidebar.header('Filtros de Jogadores')
 
+    # Selecionar jogadores
+    jogadores = df_eventos['player'].unique()
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        jogadorA = st.selectbox("Selecione o Jogador A", jogadores)
+    with col_b:
+        jogadorB = st.selectbox("Selecione o Jogador B", jogadores)
+
+    # Filtrar eventos por jogadores
+    eventos_jogadorA = df_eventos[df_eventos['player'] == jogadorA]
+    eventos_jogadorB = df_eventos[df_eventos['player'] == jogadorB]
+
+
+    if not eventos_jogadorA.empty and not eventos_jogadorB.empty:
+        col_1, col_2 = st.columns(2)
+        with col_1:
+            st.dataframe(eventos_jogadorA)
+            csv = eventos_jogadorA.to_csv(index=False)
+            st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogadorA}.csv', mime='text/csv')
+
+        with col_2:
+            st.dataframe(eventos_jogadorB)
+            csv = eventos_jogadorB.to_csv(index=False)
+            st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogadorB}.csv', mime='text/csv')
 
 ######################################  INICIA O APLICATIVO ######################################
 filtro_camp, filtro_ano, filtro_partida, filtro_id_partida, df_partidas_filtrado, df_eventos = filtros_barra_lateral()
 resumo_selecao(df_partidas_filtrado, df_eventos)
 
-if filtro_partida != 'Selecione':
-    tab_graf, tab_tabelas = st.tabs(['Gráficos', 'Tabelas'])
+with st.spinner("Carregando dados..."):
+    if filtro_partida != 'Selecione':
+        tab_graf, tab_tabelas,tab_jogador = st.tabs(['Análise Partidas', 'Bases de Dados', 'Comparação Jogadores'])
 
-    with tab_graf:
-        col_a, col_b = st.columns(2)
-        with col_a:
-            graficos_partida(df_partidas_filtrado, df_eventos, df_partidas_filtrado.home_team.values[0])
-        with col_b:
-            graficos_partida(df_partidas_filtrado, df_eventos, df_partidas_filtrado.away_team.values[0])
-            
-        pass_plot(df_eventos,filtro_id_partida)
+        with tab_graf:
+            col_a, col_b = st.columns(2)
+            with col_a:
+                graficos_partida(df_partidas_filtrado, df_eventos, df_partidas_filtrado.home_team.values[0])
+            with col_b:
+                graficos_partida(df_partidas_filtrado, df_eventos, df_partidas_filtrado.away_team.values[0])
+
+            pass_plot(df_eventos,filtro_id_partida)
         
-    with tab_tabelas:
-        tabelas_pg_partida(df_partidas_filtrado,df_eventos)
-    
+        with tab_tabelas:
+            tabelas_pg_partida(df_partidas_filtrado,df_eventos)
+            
+        with tab_jogador:
+            st.write('### Selecione dois Jogadores para Comparar')
+            aba_jogadores(df_eventos)
