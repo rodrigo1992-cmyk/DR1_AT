@@ -12,6 +12,7 @@ plotly = "==5.24.0"
 streamlit-aggrid = "==1.0.5"
 statsbombpy = "==1.14.0"
 mplsoccer = "==1.4.0"
+scipy=="1.14.1"
 
 [dev-packages]
 
