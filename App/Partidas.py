@@ -21,8 +21,6 @@ def exibir():
         away_team  = df_partidas_filtrado.away_team.values[0]
 
 
-    st.write(filtro_partida)
-    st.write(st.session_state.filtro_partida)
     loading_bar(filtro_partida)
     resumo_selecao(df_partidas_filtrado, df_eventos, filtro_camp, filtro_ano, filtro_partida)
     

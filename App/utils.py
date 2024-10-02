@@ -271,30 +271,31 @@ def graf_heat_plot(df_pressure, team_heatmap):
         st.pyplot(fig)
 
 ###################################### COMPARAÇÃO ENTRE JOGADORES ################################
-def aba_jogadores(df_eventos):
 
-    # Selecionar jogadores
-    jogadores = df_eventos['player'].unique()
+def dados_jogador(df_eventos, jogador,key_jogador):
+    df_jogador = df_eventos[df_eventos['player'] == jogador]
 
-    col_a, col_b = st.columns(2)
-    with col_a:
-        jogadorA = st.selectbox("Selecione o Jogador A", jogadores)
-    with col_b:
-        jogadorB = st.selectbox("Selecione o Jogador B", jogadores)
+    if not df_jogador['player'].empty:
 
-    # Filtrar eventos por jogadores
-    eventos_jogadorA = df_eventos[df_eventos['player'] == jogadorA]
-    eventos_jogadorB = df_eventos[df_eventos['player'] == jogadorB]
+        #Adicionar Métricas
+        count_gols = df_jogador.loc[df_jogador['shot_outcome'] == 'Goal'].shape[0]
+        count_chutes = df_jogador.loc[df_jogador['type'] == 'Shot'].shape[0]
+        count_passes_sucess = df_jogador.loc[(df_jogador['type'] == 'Pass') & (df_jogador['pass_outcome'].isnull())].shape[0]
 
+        if count_chutes >= 1:
+            taxa_conversao = count_gols / count_chutes
+        else:
+            taxa_conversao = 0
 
-    if not eventos_jogadorA.empty and not eventos_jogadorB.empty:
-        col_1, col_2 = st.columns(2)
+        col_1, col_2, col_3 = st.columns(3)
         with col_1:
-            st.dataframe(eventos_jogadorA)
-            csv = eventos_jogadorA.to_csv(index=False)
-            st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogadorA}.csv', mime='text/csv',key='jogadorA')
-
+            st.metric(label="Total de Gols", value=count_gols, delta="1", delta_color="normal")
         with col_2:
-            st.dataframe(eventos_jogadorB)
-            csv = eventos_jogadorB.to_csv(index=False)
-            st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogadorB}.csv', mime='text/csv',key='jogadorB')
+            st.metric(label="Taxa de Conversão", value=f"{taxa_conversao*100}%", delta="0.05", delta_color="off")
+        with col_3:
+            st.metric(label="Passes Bem-Sucedidos", value=count_passes_sucess, delta="5", delta_color="inverse")
+
+        #Plotar Dataframe
+        st.dataframe(df_jogador)
+        csv = df_jogador.to_csv(index=False)
+        st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogador}.csv', mime='text/csv',key = key_jogador)
