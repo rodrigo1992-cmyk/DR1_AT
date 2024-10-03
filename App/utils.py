@@ -201,34 +201,30 @@ def data_pass_plot(df_eventos, tipo, team):
 
     return df_pass, mask_complete
 
-@st.cache_data
 def graf_pass_plot(df_pass, mask_complete, tipo_label, team):
     rcParams['text.color'] = '#c7d5cc'      
     
-    with st.spinner('Processando o Mapa...'):
-        time.sleep(3)
-        
-        #Criando o gráfico
-        pitch = Pitch(pitch_type='statsbomb', pitch_color='#22312b', line_color='#c7d5cc')
-        fig, ax = pitch.draw(figsize=(16, 11), constrained_layout=True, tight_layout=False)
-        fig.set_facecolor('#22312b')
+    #Criando o gráfico
+    pitch = Pitch(pitch_type='statsbomb', pitch_color='#22312b', line_color='#c7d5cc')
+    fig, ax = pitch.draw(figsize=(16, 11), constrained_layout=True, tight_layout=False)
+    fig.set_facecolor('#22312b')
 
-        # Plotar os chutes/passes SEM Sucesso
-        pitch.arrows(df_pass[~mask_complete].x, df_pass[~mask_complete].y,
-                    df_pass[~mask_complete].end_x, df_pass[~mask_complete].end_y, width=2,
-                    headwidth=6, headlength=5, headaxislength=12,
-                    color='#4E514C', ax=ax, label='Sem Sucesso')
+    # Plotar os chutes/passes SEM Sucesso
+    pitch.arrows(df_pass[~mask_complete].x, df_pass[~mask_complete].y,
+                df_pass[~mask_complete].end_x, df_pass[~mask_complete].end_y, width=2,
+                headwidth=6, headlength=5, headaxislength=12,
+                color='#4E514C', ax=ax, label='Sem Sucesso')
 
-        # Plotar os chutes/passes COM Sucesso
-        pitch.arrows(df_pass[mask_complete].x, df_pass[mask_complete].y,
-                    df_pass[mask_complete].end_x, df_pass[mask_complete].end_y, width=2,
-                    headwidth=10, headlength=10, color='#55EA0B', ax=ax, label='Com Sucesso')
+    # Plotar os chutes/passes COM Sucesso
+    pitch.arrows(df_pass[mask_complete].x, df_pass[mask_complete].y,
+                df_pass[mask_complete].end_x, df_pass[mask_complete].end_y, width=2,
+                headwidth=10, headlength=10, color='#55EA0B', ax=ax, label='Com Sucesso')
 
-        # Configurar legenda e título
-        ax.legend(facecolor='#22312b', handlelength=5, edgecolor='None', fontsize=20, loc='upper left')
-        ax_title = ax.set_title(f'{tipo_label}: {team}', fontsize=20)
+    # Configurar legenda e título
+    ax.legend(facecolor='#22312b', handlelength=5, edgecolor='None', fontsize=20, loc='upper left')
+    ax_title = ax.set_title(f'{tipo_label}: {team}', fontsize=20)
 
-        st.pyplot(fig)
+    st.pyplot(fig)
         
 ######################################  PLOTA O MAPA DE PRESSAO ######################################
 def filtro_heat_plot(df_eventos,team1,team2):
@@ -241,61 +237,103 @@ def filtro_heat_plot(df_eventos,team1,team2):
 @st.cache_data
 def dados_heat_plot(df_eventos, team_heatmap):
 
-    with st.spinner('Processando o Mapa...'):
-        time.sleep(3)
+    parser = Sbopen()
+    df = pd.DataFrame(parser.event(df_eventos['match_id'].values[0])[0])  # 0 index is the event file      
 
-        parser = Sbopen()
-        df = pd.DataFrame(parser.event(df_eventos['match_id'].values[0])[0])  # 0 index is the event file      
+    mask_pressure = (df.team_name == team_heatmap) & (df.type_name == 'Pressure')
+    df_pressure = df.loc[mask_pressure, ['x', 'y']]
 
-        mask_pressure = (df.team_name == team_heatmap) & (df.type_name == 'Pressure')
-        df_pressure = df.loc[mask_pressure, ['x', 'y']]
+    return df_pressure
 
-        return df_pressure
-
-@st.cache_data
 def graf_heat_plot(df_pressure, team_heatmap):
-        # Criando o gráfico
-        pitch = Pitch(pitch_type='statsbomb', line_zorder=2, pitch_color='#22312b', line_color='#efefef')
+    # Criando o gráfico
+    pitch = Pitch(pitch_type='statsbomb', line_zorder=2, pitch_color='#22312b', line_color='#efefef')
 
-        fig, ax = pitch.draw(figsize=(6.6, 4.125))
-        fig.set_facecolor('#22312b')
-        bin_statistic = pitch.bin_statistic(df_pressure.x, df_pressure.y, statistic='count', bins=(25, 25))
-        bin_statistic['statistic'] = gaussian_filter(bin_statistic['statistic'], 1)
-        pcm = pitch.heatmap(bin_statistic, ax=ax, cmap='hot', edgecolors='#22312b')
-        
-        cbar = fig.colorbar(pcm, ax=ax, shrink=0.6)
-        cbar.outline.set_edgecolor('#efefef')
-        cbar.ax.yaxis.set_tick_params(color='#efefef')
-        ticks = plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#efefef')
+    fig, ax = pitch.draw(figsize=(6.6, 4.125))
+    fig.set_facecolor('#22312b')
+    bin_statistic = pitch.bin_statistic(df_pressure.x, df_pressure.y, statistic='count', bins=(25, 25))
+    bin_statistic['statistic'] = gaussian_filter(bin_statistic['statistic'], 1)
+    pcm = pitch.heatmap(bin_statistic, ax=ax, cmap='hot', edgecolors='#22312b')
+    
+    cbar = fig.colorbar(pcm, ax=ax, shrink=0.6)
+    cbar.outline.set_edgecolor('#efefef')
+    cbar.ax.yaxis.set_tick_params(color='#efefef')
+    ticks = plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#efefef')
 
-        st.pyplot(fig)
+    st.pyplot(fig)
 
 ###################################### COMPARAÇÃO ENTRE JOGADORES ################################
 
-def dados_jogador(df_eventos, jogador,key_jogador):
-    df_jogador = df_eventos[df_eventos['player'] == jogador]
+def dados_jogador(df_eventos, jogadorA,jogadorB):
+    df_jogadorA = df_eventos[df_eventos['player'] == jogadorA]
+    df_jogadorB = df_eventos[df_eventos['player'] == jogadorB]
 
-    if not df_jogador['player'].empty:
+    if not df_jogadorA['player'].empty and not df_jogadorB['player'].empty:
 
-        #Adicionar Métricas
-        count_gols = df_jogador.loc[df_jogador['shot_outcome'] == 'Goal'].shape[0]
-        count_chutes = df_jogador.loc[df_jogador['type'] == 'Shot'].shape[0]
-        count_passes_sucess = df_jogador.loc[(df_jogador['type'] == 'Pass') & (df_jogador['pass_outcome'].isnull())].shape[0]
+        #Adicionar Métricas JogadorA
+        A_count_gols = df_jogadorA.loc[df_jogadorA['shot_outcome'] == 'Goal'].shape[0]
+        A_count_chutes = df_jogadorA.loc[df_jogadorA['type'] == 'Shot'].shape[0]
+        A_count_passes_sucess = df_jogadorA.loc[(df_jogadorA['type'] == 'Pass') & (df_jogadorA['pass_outcome'].isnull())].shape[0]
 
-        if count_chutes >= 1:
-            taxa_conversao = count_gols / count_chutes
-        else:
-            taxa_conversao = 0
+        #Adicionar Métricas JogadorB
+        B_count_gols = df_jogadorB.loc[df_jogadorB['shot_outcome'] == 'Goal'].shape[0]
+        B_count_chutes = df_jogadorB.loc[df_jogadorB['type'] == 'Shot'].shape[0]
+        B_count_passes_sucess = df_jogadorB.loc[(df_jogadorB['type'] == 'Pass') & (df_jogadorB['pass_outcome'].isnull())].shape[0]
 
-        col_1, col_2, col_3 = st.columns(3)
-        with col_1:
-            st.metric(label="Total de Gols", value=count_gols, delta="1", delta_color="normal")
-        with col_2:
-            st.metric(label="Taxa de Conversão", value=f"{taxa_conversao*100}%", delta="0.05", delta_color="off")
-        with col_3:
-            st.metric(label="Passes Bem-Sucedidos", value=count_passes_sucess, delta="5", delta_color="inverse")
+        if A_count_chutes >= 1: A_taxa_conversao = int(round((A_count_gols / A_count_chutes)*100,0))
+        else: A_taxa_conversao = 0
 
-        #Plotar Dataframe
-        st.dataframe(df_jogador)
-        csv = df_jogador.to_csv(index=False)
-        st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogador}.csv', mime='text/csv',key = key_jogador)
+        if B_count_chutes >= 1: B_taxa_conversao = int(round((B_count_gols / B_count_chutes)*100,0))
+        else: B_taxa_conversao = 0
+
+        #Calcular deltas
+        A_delta_gols = A_count_gols - B_count_gols
+        A_delta_taxa = A_taxa_conversao - B_taxa_conversao
+        A_delta_passes = A_count_passes_sucess - B_count_passes_sucess
+        
+        B_delta_gols = A_delta_gols*-1
+        B_delta_taxa = A_delta_taxa*-1
+        B_delta_passes = A_delta_passes*-1
+
+        #crio regras para as cores dos gols
+        if A_count_gols == B_count_gols: color_gols = 'off'
+        else: color_gols = 'normal'
+        
+        #crio regras para as cores dos passes bem sucedidos
+        if A_count_passes_sucess == B_count_passes_sucess: color_passes = 'off'
+        else: color_passes = 'normal'
+
+        #crio regras para as cores da taxa de conversão
+        if A_taxa_conversao == B_taxa_conversao: color_taxa = 'off'
+        else: color_taxa = 'normal'
+
+        #Adicionar Métricas JogadorA
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            col_1, col_2, col_3 = st.columns(3)
+            with col_1:
+                st.metric(label="Total de Gols", value=A_count_gols, delta=A_delta_gols, delta_color=color_gols)
+            with col_2:
+                st.metric(label="Taxa de Conversão", value=f"{A_taxa_conversao}%", delta=A_delta_taxa, delta_color=color_taxa)
+            with col_3:
+                st.metric(label="Passes Bem-Sucedidos", value=A_count_passes_sucess, delta=A_delta_passes, delta_color=color_passes)
+
+            #Plotar Dataframe
+            st.dataframe(df_jogadorA)
+            csv = df_jogadorA.to_csv(index=False)
+            st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogadorA}.csv', mime='text/csv',key = 'csv_jogadorA')
+
+        with col_b:
+            col_1, col_2, col_3 = st.columns(3)
+            with col_1:
+                st.metric(label="Total de Gols", value=B_count_gols, delta= B_delta_gols , delta_color=color_gols)
+            with col_2:
+                st.metric(label="Taxa de Conversão", value=f"{B_taxa_conversao}%", delta=B_delta_taxa, delta_color=color_taxa)
+            with col_3:
+                st.metric(label="Passes Bem-Sucedidos", value=B_count_passes_sucess, delta=B_delta_passes, delta_color=color_passes)
+
+            #Plotar Dataframe
+            st.dataframe(df_jogadorB)
+            csv = df_jogadorB.to_csv(index=False)
+            st.download_button(label="Baixar em CSV", data=csv, file_name=f'dados_{jogadorB}.csv', mime='text/csv',key = 'csv_jogadorB')

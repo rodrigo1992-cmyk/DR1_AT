@@ -37,13 +37,16 @@ def exibir():
             with st.container(height=920):
                 tipo_label, tipo, team = filtro_pass_plot(home_team,away_team)
                 df_pass, mak_complete = data_pass_plot(df_eventos,tipo,team)
-                graf_pass_plot(df_pass, mak_complete, tipo_label, team)
+                with st.spinner('Processando o Mapa...'):
+                    time.sleep(3)
+                    graf_pass_plot(df_pass, mak_complete, tipo_label, team)
 
             with st.container(height=820):
                 team_heatmap = filtro_heat_plot(df_eventos,home_team,away_team)
                 df_pressure = dados_heat_plot(df_eventos,team_heatmap)
-                graf_heat_plot(df_pressure,team_heatmap)
+                with st.spinner('Processando o Mapa...'):
+                    time.sleep(3)
+                    graf_heat_plot(df_pressure,team_heatmap)
 
         with tab_tabelas:
             tabelas_pg_partida(df_partidas_filtrado,df_eventos)
-            

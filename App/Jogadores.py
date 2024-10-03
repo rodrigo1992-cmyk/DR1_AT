@@ -21,15 +21,19 @@ def exibir():
     
     loading_bar(filtro_partida)
     
-    if st.session_state.filtro_partida != 'Selecione':
+    if st.session_state.filtro_partida != 'Selecione':        
 
-        jogadores = df_eventos['player'].unique()
-    
-        col_a, col_b = st.columns(2)
-        with col_a:
-            jogadorA = st.selectbox("Selecione o Jogador", jogadores,key='jogadorA')
-            dados_jogador(df_eventos, jogadorA, 'csv_jogadorA')
-        with col_b:
-            jogadorB = st.selectbox("Selecione o Jogador", jogadores,key='jogadorB')
-            dados_jogador(df_eventos, jogadorB, 'csv_jogadorB')
- 
+        with st.form(key='my_form'):
+            st.write("Selecione os jogadores a comparar:")
+            col_a, col_b = st.columns(2)
+
+            with col_a:
+                jogadorA = st.selectbox("Selecione o Jogador A", df_eventos['player'].unique())
+
+            with col_b:
+                jogadorB = st.selectbox("Selecione o Jogador B", df_eventos['player'].unique())
+            
+            submit_button = st.form_submit_button(label='Enviar')
+            
+        if submit_button:
+            dados_jogador(df_eventos, jogadorA, jogadorB)
